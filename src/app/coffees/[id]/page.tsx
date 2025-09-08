@@ -8,12 +8,8 @@ import { coffeeService } from '@/services/firebaseService';
 import { Coffee } from '@/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { 
-  ArrowLeftIcon, 
-  ExclamationTriangleIcon,
-  MapPinIcon,
-  CalendarIcon
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
-import { CoffeeIcon } from '@/components/ui/CustomIcon';
 import { HomeButton } from '@/components/ui/HomeButton';
 
 export default function CoffeeDetailPage() {
@@ -95,7 +91,6 @@ export default function CoffeeDetailPage() {
   }
 
   const weightPercentage = getWeightPercentage();
-  const isLow = isLowStock();
   const isExpiring = isExpiringSoon();
 
   return (
