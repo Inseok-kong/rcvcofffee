@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useCoffeeStore } from '@/store/useStore';
 import { coffeeService } from '@/services/firebaseService';
 import { Coffee } from '@/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { HomeButton } from '@/components/ui/HomeButton';
 import { 
   ArrowLeftIcon, 
   ExclamationTriangleIcon,
@@ -14,6 +14,7 @@ import {
   CalendarIcon
 } from '@heroicons/react/24/outline';
 import { CoffeeIcon } from '@/components/ui/CustomIcon';
+import { HomeButton } from '@/components/ui/HomeButton';
 
 export default function CoffeeDetailPage() {
   const params = useParams();
@@ -21,8 +22,7 @@ export default function CoffeeDetailPage() {
   const { user, isAuthenticated, isLoading } = useCoffeeStore();
   const [coffee, setCoffee] = useState<Coffee | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
-
-  const coffeeId = params.id as string;
+  const coffeeId = typeof params.id === 'string' ? params.id : null;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -54,16 +54,6 @@ export default function CoffeeDetailPage() {
     }
   }, [isAuthenticated, user, coffeeId, loadCoffee]);
 
-  const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      'single-origin': 'bg-green-100 text-green-800',
-      'blend': 'bg-blue-100 text-blue-800',
-      'espresso': 'bg-red-100 text-red-800',
-      'filter': 'bg-purple-100 text-purple-800',
-    };
-    return colors[type] || 'bg-gray-100 text-gray-800';
-  };
-
   const getTypeName = (type: string) => {
     const names: Record<string, string> = {
       'single-origin': '싱글오리진',
@@ -80,34 +70,16 @@ export default function CoffeeDetailPage() {
   };
 
   const isLowStock = () => {
+    if (!coffee) return false;
     return getWeightPercentage() < 20;
   };
 
   const isExpiringSoon = () => {
-    if (!coffee?.expiryDate) return false;
+    if (!coffee || !coffee.expiryDate) return false;
     const today = new Date();
     const expiryDate = new Date(coffee.expiryDate);
     const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
-  };
-
-  const renderRatingBar = (value: number, label: string) => {
-    return (
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-gray-700 w-16">{label}</span>
-        <div className="flex-1 flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className={`w-4 h-4 rounded-full ${
-                i <= value ? 'bg-amber-500' : 'bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
-        <span className="text-sm text-gray-600 w-8">{value}/5</span>
-      </div>
-    );
   };
 
   if (isLoading || isLoadingData) {
@@ -127,20 +99,20 @@ export default function CoffeeDetailPage() {
   const isExpiring = isExpiringSoon();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-amber-900">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
-              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-2 text-amber-200 hover:text-white transition-colors"
             >
               <ArrowLeftIcon className="h-6 w-6" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{coffee.name}</h1>
-              <p className="mt-2 text-gray-600">
+              <h1 className="text-3xl font-bold text-white">{coffee.name}</h1>
+              <p className="mt-2 text-amber-200">
                 {coffee.brand && `${coffee.brand} • `}
                 {getTypeName(coffee.type)}
               </p>
@@ -149,46 +121,212 @@ export default function CoffeeDetailPage() {
           <HomeButton size="md" />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* 메인 정보 */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* 기본 정보 카드 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-xl font-semibold text-gray-900">{coffee.name}</h2>
-                    <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(coffee.type)}`}>
-                      {getTypeName(coffee.type)}
-                    </span>
-                  </div>
-                  {coffee.brand && (
-                    <p className="text-gray-600 mb-2">{coffee.brand}</p>
-                  )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 왼쪽 패널 - 상세 정보 */}
+          <div className="space-y-4">
+            {/* 컵노트 */}
+            {coffee.cupNotes && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">컵노트</span>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  {isLow && (
-                    <ExclamationTriangleIcon className="h-5 w-5 text-red-500" title="재고 부족" />
+                <p className="text-sm text-gray-600">{coffee.cupNotes}</p>
+              </div>
+            )}
+
+            {/* 로스팅 포인트 */}
+            {coffee.roastingPoint && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">로스팅 포인트</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.roastingPoint}</p>
+              </div>
+            )}
+
+            {/* 국가 */}
+            {coffee.country && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">국가</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.country}</p>
+              </div>
+            )}
+
+            {/* 지역 */}
+            {coffee.region && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">지역</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.region}</p>
+              </div>
+            )}
+
+            {/* 농장 */}
+            {coffee.farm && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">농장</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.farm}</p>
+              </div>
+            )}
+
+            {/* 품종 */}
+            {coffee.variety && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">품종</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.variety}</p>
+              </div>
+            )}
+
+            {/* 고도 */}
+            {coffee.altitude && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">고도</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.altitude}</p>
+              </div>
+            )}
+
+            {/* 가공방식 */}
+            {coffee.processingMethod && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700">가공방식</span>
+                </div>
+                <p className="text-sm text-gray-600">{coffee.processingMethod}</p>
+              </div>
+            )}
+
+            {/* 감각적 특성 */}
+            {(coffee.acidity || coffee.body || coffee.fermentation) && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="space-y-4">
+                  {coffee.acidity && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">산미</span>
+                        <span className="text-sm text-gray-600">{coffee.acidity}/5</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <div
+                            key={i}
+                            className={`w-4 h-4 rounded-full ${
+                              i < coffee.acidity! ? 'bg-amber-500' : 'bg-gray-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )}
-                  {isExpiring && (
-                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" title="곧 만료" />
+                  
+                  {coffee.body && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">바디감</span>
+                        <span className="text-sm text-gray-600">{coffee.body}/5</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <div
+                            key={i}
+                            className={`w-4 h-4 rounded-full ${
+                              i < coffee.body! ? 'bg-amber-500' : 'bg-gray-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {coffee.fermentation && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">발효도</span>
+                        <span className="text-sm text-gray-600">{coffee.fermentation}/5</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <div
+                            key={i}
+                            className={`w-4 h-4 rounded-full ${
+                              i < coffee.fermentation! ? 'bg-amber-500' : 'bg-gray-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
+            )}
+          </div>
 
-              {/* 무게 정보 */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>남은 무게</span>
-                  <span className="font-medium">
+          {/* 오른쪽 패널 - 요약 및 액션 */}
+          <div className="space-y-6">
+            {/* 요약 박스 */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="text-center space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600">Special Single Origin</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                    {coffee.country?.toUpperCase() || 'COFFEE'}
+                  </h2>
+                </div>
+                
+                <div className="text-sm text-gray-700">
+                  {coffee.farm && coffee.variety && (
+                    <p>{coffee.farm} {coffee.variety}</p>
+                  )}
+                  {coffee.processingMethod && (
+                    <div className="mt-2">
+                      <div className="w-full h-8 bg-gray-100 rounded flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-700">{coffee.processingMethod}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {coffee.cupNotes && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">{coffee.cupNotes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 액션 버튼 */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <Link
+                href={`/consumption/quick?coffeeId=${coffee.id}`}
+                className="w-full bg-amber-600 text-white py-4 px-6 rounded-md hover:bg-amber-700 transition-colors text-center block font-medium text-lg"
+              >
+                {coffee.currentWeight}g 상품 추가하기
+              </Link>
+            </div>
+
+            {/* 재고 정보 */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">재고 정보</h3>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">남은 무게</span>
+                  <span className="text-sm font-medium text-gray-900">
                     {coffee.currentWeight}g / {coffee.weight}g
                   </span>
                 </div>
                 
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className={`h-3 rounded-full transition-all ${
+                    className={`h-2 rounded-full transition-all ${
                       weightPercentage > 50 
                         ? 'bg-green-500' 
                         : weightPercentage > 20 
@@ -199,7 +337,7 @@ export default function CoffeeDetailPage() {
                   />
                 </div>
                 
-                <div className="flex justify-between text-sm text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-gray-500">
                   <span>{weightPercentage.toFixed(1)}% 남음</span>
                   {coffee.expiryDate && (
                     <span>
@@ -207,171 +345,24 @@ export default function CoffeeDetailPage() {
                     </span>
                   )}
                 </div>
-              </div>
-
-              {/* 날짜 정보 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">구매일:</span>
-                  <span className="font-medium">{new Date(coffee.purchaseDate).toLocaleDateString('ko-KR')}</span>
+                
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">구매일</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {new Date(coffee.purchaseDate).toLocaleDateString()}
+                  </span>
                 </div>
+                
                 {coffee.expiryDate && (
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">만료일:</span>
-                    <span className="font-medium">{new Date(coffee.expiryDate).toLocaleDateString('ko-KR')}</span>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">만료일</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(coffee.expiryDate).toLocaleDateString()}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* 상세 정보 카드 */}
-            {(coffee.description || coffee.cupNotes || coffee.country || coffee.region || coffee.farm || coffee.variety || coffee.altitude || coffee.processingMethod || coffee.roastingPoint) && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">상세 정보</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {coffee.country && (
-                    <div className="flex items-center gap-2">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">국가:</span>
-                      <span className="font-medium">{coffee.country}</span>
-                    </div>
-                  )}
-                  
-                  {coffee.region && (
-                    <div className="flex items-center gap-2">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">지역:</span>
-                      <span className="font-medium">{coffee.region}</span>
-                    </div>
-                  )}
-                  
-                  {coffee.farm && (
-                    <div className="flex items-center gap-2">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">농장:</span>
-                      <span className="font-medium">{coffee.farm}</span>
-                    </div>
-                  )}
-                  
-                  {coffee.variety && (
-                    <div className="flex items-center gap-2">
-                      <CoffeeIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">품종:</span>
-                      <span className="font-medium">{coffee.variety}</span>
-                    </div>
-                  )}
-                  
-                  {coffee.altitude && (
-                    <div className="flex items-center gap-2">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">고도:</span>
-                      <span className="font-medium">{coffee.altitude}</span>
-                    </div>
-                  )}
-                  
-                  {coffee.processingMethod && (
-                    <div className="flex items-center gap-2">
-                      <CoffeeIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">가공방식:</span>
-                      <span className="font-medium">{coffee.processingMethod}</span>
-                    </div>
-                  )}
-                  
-                  {coffee.roastingPoint && (
-                    <div className="flex items-center gap-2">
-                      <CoffeeIcon className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">로스팅 포인트:</span>
-                      <span className="font-medium">{coffee.roastingPoint}</span>
-                    </div>
-                  )}
-                </div>
-
-                {coffee.description && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">설명</h4>
-                    <p className="text-gray-600 leading-relaxed">{coffee.description}</p>
-                  </div>
-                )}
-
-                {coffee.cupNotes && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">컵노트</h4>
-                    <p className="text-gray-600 leading-relaxed">{coffee.cupNotes}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 감각적 특성 */}
-            {(coffee.acidity || coffee.body || coffee.fermentation) && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">감각적 특성</h3>
-                
-                <div className="space-y-4">
-                  {coffee.acidity && renderRatingBar(coffee.acidity, '산미')}
-                  {coffee.body && renderRatingBar(coffee.body, '바디감')}
-                  {coffee.fermentation && renderRatingBar(coffee.fermentation, '발효도')}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 사이드바 */}
-          <div className="space-y-6">
-            {/* 액션 카드 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">액션</h3>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={() => router.push(`/consumption/quick?coffeeId=${coffee.id}`)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-                >
-                  <CoffeeIcon className="h-5 w-5" />
-                  소비 기록하기
-                </button>
-                
-                <button
-                  onClick={() => router.push('/coffees')}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <ArrowLeftIcon className="h-5 w-5" />
-                  재고 목록으로
-                </button>
-              </div>
-            </div>
-
-            {/* 상태 알림 */}
-            {(isLow || isExpiring) && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">알림</h3>
-                
-                <div className="space-y-3">
-                  {isLow && (
-                    <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
-                      <div>
-                        <p className="text-sm font-medium text-red-800">재고 부족</p>
-                        <p className="text-xs text-red-600">재고가 20% 미만입니다</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {isExpiring && (
-                    <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />
-                      <div>
-                        <p className="text-sm font-medium text-yellow-800">곧 만료</p>
-                        <p className="text-xs text-yellow-600">7일 이내에 만료됩니다</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
