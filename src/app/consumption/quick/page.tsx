@@ -64,8 +64,13 @@ function QuickConsumptionPageContent() {
     if (dateParam) {
       setSelectedDate(dateParam);
     } else {
-      // 기본값은 오늘 날짜
-      setSelectedDate(new Date().toISOString().split('T')[0]);
+      // 기본값은 오늘 날짜 (로컬 시간대 기준)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayString = `${year}-${month}-${day}`;
+      setSelectedDate(todayString);
     }
 
     // 기본값은 현재 시간
@@ -96,6 +101,13 @@ function QuickConsumptionPageContent() {
 
       // 날짜와 시간을 결합하여 Date 객체 생성
       const consumedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+      
+      console.log('소비기록 추가 - 날짜 정보:', {
+        selectedDate,
+        selectedTime,
+        consumedDateTime: consumedDateTime.toISOString(),
+        consumedDateString: consumedDateTime.toDateString()
+      });
       
       const consumptionData = {
         userId: user.uid,
@@ -131,6 +143,7 @@ function QuickConsumptionPageContent() {
       // 성공 메시지 표시
       alert('소비 기록이 성공적으로 추가되었습니다!');
       
+      // 소비기록 페이지로 이동 (페이지 새로고침 없이)
       router.push('/consumption');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '소비 기록에 실패했습니다.';

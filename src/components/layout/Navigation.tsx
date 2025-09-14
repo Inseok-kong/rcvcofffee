@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useCoffeeStore } from '@/store/useStore';
 import { authService } from '@/services/authService';
 import {
   HomeIcon,
   BookOpenIcon,
   ChartBarIcon,
-  ChatBubbleLeftRightIcon,
   ArrowRightOnRectangleIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
@@ -19,13 +18,13 @@ const navigationItems = [
   { name: '커피 관리', href: '/coffees', icon: CoffeeIcon },
   { name: '레시피', href: '/recipes', icon: BookOpenIcon },
   { name: '소비 기록', href: '/consumption', icon: ChartBarIcon },
-  { name: '게시판', href: '/board', icon: ChatBubbleLeftRightIcon },
   { name: '마이페이지', href: '/mypage', icon: UserIcon },
 ];
 
 export function Navigation() {
   const pathname = usePathname();
-  const { isAuthenticated, setUser } = useCoffeeStore();
+  const router = useRouter();
+  const { isAuthenticated, isLoading, setUser } = useCoffeeStore();
 
   const handleLogout = async () => {
     try {
@@ -40,7 +39,30 @@ export function Navigation() {
     }
   };
 
-  if (!isAuthenticated) {
+  const handleNavigationClick = (e: React.MouseEvent, href: string) => {
+    console.log('Navigation click:', { href, isAuthenticated, isLoading });
+    
+    // 로딩 중이면 아무것도 하지 않음
+    if (isLoading) {
+      console.log('로딩 중이므로 네비게이션 클릭 무시');
+      e.preventDefault();
+      return;
+    }
+    
+    // 인증 상태가 명확하지 않은 경우 (로딩 중이거나 인증되지 않은 경우)
+    if (!isAuthenticated) {
+      console.log('인증되지 않은 상태에서 네비게이션 클릭');
+      e.preventDefault();
+      router.push('/login');
+      return;
+    }
+    
+    // 인증된 경우 정상적으로 네비게이션 허용
+    console.log('인증된 사용자 - 네비게이션 허용');
+  };
+
+  // 로딩 중이거나 인증되지 않은 경우 네비게이션 숨김
+  if (isLoading || !isAuthenticated) {
     return null;
   }
 
@@ -53,6 +75,7 @@ export function Navigation() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={(e) => handleNavigationClick(e, item.href)}
               className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
                 isActive
                   ? 'text-amber-600 bg-amber-50'

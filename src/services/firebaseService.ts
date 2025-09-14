@@ -14,15 +14,14 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Coffee, Recipe, CoffeeConsumption, BeanUsage, BoardPost, BoardComment } from '@/types';
+import { Coffee, Recipe, CoffeeConsumption, BeanUsage, RecipeComment } from '@/types';
 
 // 컬렉션 참조들
 const coffeesRef = collection(db, 'coffees');
 const recipesRef = collection(db, 'recipes');
 const consumptionsRef = collection(db, 'consumptions');
 const beanUsagesRef = collection(db, 'beanUsages');
-const boardPostsRef = collection(db, 'boardPosts');
-const boardCommentsRef = collection(db, 'boardComments');
+const recipeCommentsRef = collection(db, 'recipeComments');
 
 // 커피 관련 서비스
 export const coffeeService = {
@@ -181,21 +180,71 @@ export const recipeService = {
   // 레시피 추가
   async addRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const now = new Date();
-    const docRef = await addDoc(recipesRef, {
-      ...recipe,
-      createdAt: Timestamp.fromDate(now),
-      updatedAt: Timestamp.fromDate(now),
-    });
-    return docRef.id;
+    
+    // 기본 필수 필드들만 포함한 객체 생성
+    const recipeData: Record<string, unknown> = {
+      name: recipe.name,
+      category: recipe.category,
+      ingredients: recipe.ingredients || [],
+      process: recipe.process || '',
+      totalBeanAmount: recipe.totalBeanAmount,
+      servings: recipe.servings,
+      prepTime: recipe.prepTime,
+      difficulty: recipe.difficulty,
+      isFavorite: recipe.isFavorite,
+      userId: recipe.userId,
+    };
+    
+    // 선택적 필드들만 유효한 값이 있을 때 추가
+    if (recipe.description && typeof recipe.description === 'string' && recipe.description.trim()) {
+      recipeData.description = recipe.description;
+    }
+    
+    if (recipe.imageUrl && typeof recipe.imageUrl === 'string' && recipe.imageUrl.trim()) {
+      recipeData.imageUrl = recipe.imageUrl;
+    }
+    
+    // 모든 undefined 값 제거
+    const finalData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(recipeData)) {
+      if (value !== undefined && value !== null) {
+        finalData[key] = value;
+      }
+    }
+    
+    console.log('Adding recipe with cleaned data:', JSON.stringify(finalData, null, 2));
+    
+    try {
+      const docRef = await addDoc(recipesRef, {
+        ...finalData,
+        createdAt: Timestamp.fromDate(now),
+        updatedAt: Timestamp.fromDate(now),
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error adding recipe:', error);
+      console.error('Recipe data that caused error:', JSON.stringify(finalData, null, 2));
+      throw error;
+    }
   },
 
   // 레시피 수정
   async updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {
     const recipeRef = doc(recipesRef, id);
-    await updateDoc(recipeRef, {
-      ...updates,
+    
+    // undefined 값들을 제거
+    const updateData: Record<string, unknown> = {
       updatedAt: Timestamp.fromDate(new Date()),
+    };
+    
+    Object.keys(updates).forEach(key => {
+      const value = updates[key as keyof Recipe];
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
     });
+    
+    await updateDoc(recipeRef, updateData);
   },
 
   // 레시피 삭제
@@ -356,103 +405,14 @@ export const beanUsageService = {
   },
 };
 
-// 게시판 관련 서비스
-export const boardService = {
-  // 게시글 목록 조회
-  async getPosts(category?: string, limitCount?: number): Promise<BoardPost[]> {
-    let q = query(boardPostsRef, orderBy('isPinned', 'desc'), orderBy('createdAt', 'desc'));
-    
-    if (category && category !== 'all') {
-      q = query(q, where('category', '==', category));
-    }
-    
-    if (limitCount) {
-      q = query(q, limit(limitCount));
-    }
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt.toDate(),
-      updatedAt: doc.data().updatedAt.toDate(),
-    })) as BoardPost[];
-  },
-
-  // 단일 게시글 조회
-  async getPost(postId: string): Promise<BoardPost | null> {
-    const postDoc = await getDoc(doc(boardPostsRef, postId));
-    if (!postDoc.exists()) {
-      return null;
-    }
-    
-    return {
-      id: postDoc.id,
-      ...postDoc.data(),
-      createdAt: postDoc.data().createdAt.toDate(),
-      updatedAt: postDoc.data().updatedAt.toDate(),
-    } as BoardPost;
-  },
-
-  // 게시글 작성
-  async createPost(post: Omit<BoardPost, 'id' | 'createdAt' | 'updatedAt' | 'views' | 'likes'>): Promise<string> {
-    const now = new Date();
-    const docRef = await addDoc(boardPostsRef, {
-      ...post,
-      views: 0,
-      likes: 0,
-      createdAt: Timestamp.fromDate(now),
-      updatedAt: Timestamp.fromDate(now),
-    });
-    return docRef.id;
-  },
-
-  // 게시글 수정
-  async updatePost(postId: string, updates: Partial<BoardPost>): Promise<void> {
-    const postRef = doc(boardPostsRef, postId);
-    await updateDoc(postRef, {
-      ...updates,
-      updatedAt: Timestamp.fromDate(new Date()),
-    });
-  },
-
-  // 게시글 삭제
-  async deletePost(postId: string): Promise<void> {
-    await deleteDoc(doc(boardPostsRef, postId));
-  },
-
-  // 조회수 증가
-  async incrementViews(postId: string): Promise<void> {
-    const postRef = doc(boardPostsRef, postId);
-    const postDoc = await getDoc(postRef);
-    
-    if (postDoc.exists()) {
-      const currentViews = postDoc.data().views || 0;
-      await updateDoc(postRef, {
-        views: currentViews + 1,
-      });
-    }
-  },
-
-  // 좋아요 토글
-  async toggleLike(postId: string): Promise<void> {
-    const postRef = doc(boardPostsRef, postId);
-    const postDoc = await getDoc(postRef);
-    
-    if (postDoc.exists()) {
-      const currentLikes = postDoc.data().likes || 0;
-      await updateDoc(postRef, {
-        likes: currentLikes + 1,
-      });
-    }
-  },
-
-  // 댓글 조회
-  async getComments(postId: string): Promise<BoardComment[]> {
+// 레시피 댓글 관련 서비스
+export const recipeCommentService = {
+  // 레시피 댓글 조회
+  async getComments(recipeId: string): Promise<RecipeComment[]> {
     const q = query(
-      boardCommentsRef,
-      where('postId', '==', postId),
-      orderBy('createdAt', 'asc')
+      recipeCommentsRef,
+      where('recipeId', '==', recipeId),
+      orderBy('createdAt', 'desc')
     );
     
     const snapshot = await getDocs(q);
@@ -461,13 +421,13 @@ export const boardService = {
       ...doc.data(),
       createdAt: doc.data().createdAt.toDate(),
       updatedAt: doc.data().updatedAt.toDate(),
-    })) as BoardComment[];
+    })) as RecipeComment[];
   },
 
   // 댓글 작성
-  async createComment(comment: Omit<BoardComment, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  async createComment(comment: Omit<RecipeComment, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const now = new Date();
-    const docRef = await addDoc(boardCommentsRef, {
+    const docRef = await addDoc(recipeCommentsRef, {
       ...comment,
       createdAt: Timestamp.fromDate(now),
       updatedAt: Timestamp.fromDate(now),
@@ -475,8 +435,17 @@ export const boardService = {
     return docRef.id;
   },
 
+  // 댓글 수정
+  async updateComment(commentId: string, updates: Partial<RecipeComment>): Promise<void> {
+    const commentRef = doc(recipeCommentsRef, commentId);
+    await updateDoc(commentRef, {
+      ...updates,
+      updatedAt: Timestamp.fromDate(new Date()),
+    });
+  },
+
   // 댓글 삭제
   async deleteComment(commentId: string): Promise<void> {
-    await deleteDoc(doc(boardCommentsRef, commentId));
+    await deleteDoc(doc(recipeCommentsRef, commentId));
   },
 };

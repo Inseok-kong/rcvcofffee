@@ -16,6 +16,16 @@ interface SelectedDateConsumptionProps {
 }
 
 export function SelectedDateConsumption({ date, consumptions, onAddConsumption }: SelectedDateConsumptionProps) {
+  console.log('SelectedDateConsumption 렌더링:', {
+    date: date.toDateString(),
+    consumptionsCount: consumptions.length,
+    consumptions: consumptions.map(c => ({
+      id: c.id,
+      date: c.consumedAt.toDateString(),
+      coffeeName: c.coffeeName
+    }))
+  });
+  
   const totalAmount = consumptions.reduce((total, consumption) => total + consumption.amount, 0);
   const totalCount = consumptions.length;
 

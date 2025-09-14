@@ -7,6 +7,7 @@ import { recipeService } from '@/services/firebaseService';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PlusIcon, FunnelIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function RecipesPage() {
   const router = useRouter();
@@ -14,6 +15,9 @@ export default function RecipesPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  
+  // 인증 체크
+  const { isReady } = useAuth();
 
   const categories = [
     { value: 'all', label: '전체' },
@@ -27,7 +31,7 @@ export default function RecipesPage() {
   ];
 
   const loadRecipes = useCallback(async () => {
-    if (!user) return;
+    if (!user || recipes.length > 0) return; // 이미 데이터가 있으면 로딩하지 않음
     
     setIsLoadingData(true);
     try {
@@ -38,16 +42,12 @@ export default function RecipesPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [user, setRecipes]);
+  }, [user, setRecipes, recipes.length]);
+
+  // 인증 체크는 useAuth 훅에서 처리됨
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && recipes.length === 0) {
       loadRecipes();
     }
   }, [isAuthenticated, user, loadRecipes]);
@@ -84,16 +84,12 @@ export default function RecipesPage() {
     return matchesCategory && matchesFavorite;
   });
 
-  if (isLoading || isLoadingData) {
+  if (isLoading || isLoadingData || !isReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (

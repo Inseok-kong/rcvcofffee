@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useCallback, useRef } from 'react';
 import { useCoffeeStore } from '@/store/useStore';
 import { coffeeService, consumptionService, recipeService } from '@/services/firebaseService';
 import { DashboardStats } from '@/components/dashboard/DashboardStats';
@@ -9,9 +8,9 @@ import { RecentRecipes } from '@/components/dashboard/RecentRecipes';
 import { CoffeeInventory } from '@/components/dashboard/CoffeeInventory';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Home() {
-  const router = useRouter();
   const { 
     user, 
     isAuthenticated, 
@@ -24,11 +23,22 @@ export default function Home() {
     getTodayConsumption,
     getTotalWeight 
   } = useCoffeeStore();
+  
+  // 인증 체크
+  const { isReady } = useAuth();
+  const dataLoaded = useRef(false);
 
   const loadData = useCallback(async () => {
-    if (!user) return;
+    if (!user || dataLoaded.current) return;
+
+    // 이미 데이터가 있으면 로딩하지 않음
+    if (coffees.length > 0 && recipes.length > 0) {
+      dataLoaded.current = true;
+      return;
+    }
 
     try {
+      console.log('데이터 로딩 시작');
       const [coffeesData, recipesData, consumptionsData] = await Promise.all([
         coffeeService.getCoffees(),
         recipeService.getRecipes(),
@@ -38,33 +48,35 @@ export default function Home() {
       setCoffees(coffeesData);
       setRecipes(recipesData);
       setConsumptions(consumptionsData);
+      dataLoaded.current = true;
+      console.log('데이터 로딩 완료');
     } catch (error) {
       console.error('데이터 로딩 오류:', error);
     }
-  }, [user, setCoffees, setRecipes, setConsumptions]);
+  }, [user, setCoffees, setRecipes, setConsumptions, coffees.length, recipes.length]);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && isReady && !dataLoaded.current) {
       loadData();
     }
-  }, [isAuthenticated, user, loadData]);
+  }, [isAuthenticated, user, isReady, loadData]);
 
+  // 로딩 중이거나 인증되지 않은 경우에만 로딩 화면 표시
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
+  // 인증되지 않은 경우 useAuth에서 리다이렉트 처리
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   const todayConsumption = getTodayConsumption();

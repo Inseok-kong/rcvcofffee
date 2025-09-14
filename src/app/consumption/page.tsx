@@ -9,6 +9,7 @@ import { ConsumptionCalendar } from '@/components/consumption/ConsumptionCalenda
 import { SelectedDateConsumption } from '@/components/consumption/SelectedDateConsumption';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PlusIcon, ChartBarIcon, CalendarIcon, ListBulletIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ConsumptionPage() {
   const router = useRouter();
@@ -17,6 +18,9 @@ export default function ConsumptionPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today');
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  
+  // 인증 체크
+  const { isReady } = useAuth();
 
   const loadConsumptions = useCallback(async () => {
     if (!user) return;
@@ -34,11 +38,7 @@ export default function ConsumptionPage() {
     }
   }, [user, setConsumptions]);
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
+  // 인증 체크는 useAuth 훅에서 처리됨
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -50,12 +50,25 @@ export default function ConsumptionPage() {
   useEffect(() => {
     const handleFocus = () => {
       if (isAuthenticated && user) {
+        console.log('페이지 포커스 - 소비기록 데이터 새로고침');
+        loadConsumptions();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAuthenticated && user) {
+        console.log('페이지 가시성 변경 - 소비기록 데이터 새로고침');
         loadConsumptions();
       }
     };
 
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [isAuthenticated, user, loadConsumptions]);
 
   const handleDeleteConsumption = async (consumptionId: string) => {
@@ -113,32 +126,64 @@ export default function ConsumptionPage() {
   };
 
   const getConsumptionsForDate = (date: Date) => {
-    return consumptions.filter(consumption => {
-      const consumptionDate = consumption.consumedAt;
-      return consumptionDate.toDateString() === date.toDateString();
+    // 로컬 시간대를 기준으로 날짜 비교
+    const targetYear = date.getFullYear();
+    const targetMonth = date.getMonth();
+    const targetDay = date.getDate();
+    
+    console.log('getConsumptionsForDate 호출:', {
+      targetDate: `${targetYear}-${targetMonth + 1}-${targetDay}`,
+      totalConsumptions: consumptions.length,
+      consumptions: consumptions.map(c => {
+        const consumedDate = new Date(c.consumedAt);
+        return {
+          id: c.id,
+          date: `${consumedDate.getFullYear()}-${consumedDate.getMonth() + 1}-${consumedDate.getDate()}`,
+          coffeeName: c.coffeeName
+        };
+      })
     });
+    
+    const filtered = consumptions.filter(consumption => {
+      const consumedDate = new Date(consumption.consumedAt);
+      const isMatch = consumedDate.getFullYear() === targetYear &&
+                     consumedDate.getMonth() === targetMonth &&
+                     consumedDate.getDate() === targetDay;
+      
+      console.log('날짜 비교:', {
+        consumedDate: `${consumedDate.getFullYear()}-${consumedDate.getMonth() + 1}-${consumedDate.getDate()}`,
+        targetDate: `${targetYear}-${targetMonth + 1}-${targetDay}`,
+        isMatch
+      });
+      return isMatch;
+    });
+    
+    console.log('필터링된 소비 기록:', filtered.length, '개');
+    return filtered;
   };
 
   const handleDateSelect = (date: Date) => {
+    console.log('날짜 선택됨:', date.toDateString());
     setSelectedDate(date);
   };
 
   const handleDateAdd = (date: Date) => {
-    // 선택된 날짜를 URL 파라미터로 전달하여 빠른 소비 기록 페이지로 이동
-    const dateString = date.toISOString().split('T')[0];
+    console.log('handleDateAdd 호출됨:', date);
+    // 로컬 시간대를 기준으로 날짜 문자열 생성 (시간대 차이 방지)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`;
+    console.log('이동할 URL:', `/consumption/quick?date=${dateString}`);
     router.push(`/consumption/quick?date=${dateString}`);
   };
 
-  if (isLoading || isLoadingData) {
+  if (isLoading || isLoadingData || !isReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (

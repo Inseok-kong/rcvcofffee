@@ -1,12 +1,35 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PlusIcon, BookOpenIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { CoffeeIcon } from '@/components/ui/CustomIcon';
+import { useCoffeeStore } from '@/store/useStore';
 
 export function QuickActions() {
-  const handleActionClick = (href: string, name: string) => {
-    console.log(`${name} 클릭됨: ${href}`);
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useCoffeeStore();
+
+  const handleActionClick = (e: React.MouseEvent, href: string, name: string) => {
+    console.log(`${name} 클릭됨: ${href}`, { isAuthenticated, isLoading });
+    
+    // 로딩 중이면 아무것도 하지 않음
+    if (isLoading) {
+      console.log('로딩 중이므로 퀵 액션 클릭 무시');
+      e.preventDefault();
+      return;
+    }
+    
+    // 인증 상태가 명확하지 않은 경우
+    if (!isAuthenticated) {
+      console.log('인증되지 않은 상태에서 퀵 액션 클릭');
+      e.preventDefault();
+      router.push('/login');
+      return;
+    }
+    
+    // 인증된 경우 정상적으로 네비게이션 허용
+    console.log('인증된 사용자 - 퀵 액션 허용');
   };
 
   const actions = [
@@ -42,7 +65,7 @@ export function QuickActions() {
         <Link
           key={action.name}
           href={action.href}
-          onClick={() => handleActionClick(action.href, action.name)}
+          onClick={(e) => handleActionClick(e, action.href, action.name)}
           className={`${action.color} text-white rounded-lg p-4 text-center transition-colors`}
         >
           <action.icon className="h-8 w-8 mx-auto mb-2" />

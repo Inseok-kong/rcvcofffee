@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCoffeeStore } from '@/store/useStore';
 import { recipeService, coffeeService } from '@/services/firebaseService';
-import { Recipe, RecipeStep, Coffee } from '@/types';
+import { Recipe, Coffee } from '@/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { HomeButton } from '@/components/ui/HomeButton';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function NewRecipePage() {
   const router = useRouter();
@@ -15,17 +16,19 @@ export default function NewRecipePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [error, setError] = useState('');
+  
+  // 인증 체크
+  const { isReady } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
     selectedCoffeeId: '',
     totalBeanAmount: '',
+    process: '',
+    grindSize: '',
   });
 
   const [coffees, setCoffees] = useState<Coffee[]>([]);
-  const [steps, setSteps] = useState<RecipeStep[]>([
-    { stepNumber: 1, description: '', duration: undefined, temperature: undefined }
-  ]);
 
   const loadCoffees = useCallback(async () => {
     if (!user) return;
@@ -41,11 +44,7 @@ export default function NewRecipePage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
+  // 인증 체크는 useAuth 훅에서 처리됨
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -74,10 +73,8 @@ export default function NewRecipePage() {
         throw new Error('원두 사용량을 입력해주세요.');
       }
 
-      const validSteps = steps.filter(step => step.description.trim());
-      
-      if (validSteps.length === 0) {
-        throw new Error('최소 하나의 제조 과정을 입력해주세요.');
+      if (!formData.process.trim()) {
+        throw new Error('제조 과정을 입력해주세요.');
       }
 
       const selectedCoffee = coffees.find(coffee => coffee.id === formData.selectedCoffeeId);
@@ -94,12 +91,8 @@ export default function NewRecipePage() {
           amount: parseFloat(formData.totalBeanAmount),
           unit: 'g'
         }],
-        steps: validSteps.map((step, index) => ({
-          ...step,
-          stepNumber: index + 1,
-          duration: step.duration ? parseInt(step.duration.toString()) : undefined,
-          temperature: step.temperature ? parseInt(step.temperature.toString()) : undefined,
-        })),
+        process: formData.process,
+        grindSize: formData.grindSize || undefined,
         totalBeanAmount: parseFloat(formData.totalBeanAmount),
         servings: 1,
         prepTime: 0,
@@ -135,26 +128,6 @@ export default function NewRecipePage() {
     }));
   };
 
-  const addStep = () => {
-    setSteps([...steps, { 
-      stepNumber: steps.length + 1, 
-      description: '', 
-      duration: undefined, 
-      temperature: undefined 
-    }]);
-  };
-
-  const removeStep = (index: number) => {
-    if (steps.length > 1) {
-      setSteps(steps.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateStep = (index: number, field: keyof RecipeStep, value: string | number) => {
-    const updated = [...steps];
-    updated[index] = { ...updated[index], [field]: value };
-    setSteps(updated);
-  };
 
   if (isLoading || isLoadingData) {
     return (
@@ -164,8 +137,12 @@ export default function NewRecipePage() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
+  if (isLoading || !isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   return (
@@ -254,66 +231,36 @@ export default function NewRecipePage() {
                   placeholder="예: 20"
                 />
               </div>
+
+              <div>
+                <label htmlFor="grindSize" className="block text-sm font-medium text-gray-700 mb-2">
+                  분쇄 입자 크기
+                </label>
+                <input
+                  type="text"
+                  id="grindSize"
+                  name="grindSize"
+                  value={formData.grindSize}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500"
+                  placeholder="예: 중간 정도, 에스프레소용, 드립용, 콜드브루용"
+                />
+              </div>
             </div>
 
 
-            {/* 단계 */}
+            {/* 제조 과정 */}
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">제조 과정 *</h3>
-                <button
-                  type="button"
-                  onClick={addStep}
-                  className="inline-flex items-center px-3 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors text-sm"
-                >
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  단계 추가
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                {steps.map((step, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">단계 {index + 1}</span>
-                      {steps.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeStep(index)}
-                          className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    <textarea
-                      placeholder="단계별 설명을 입력하세요"
-                      value={step.description}
-                      onChange={(e) => updateStep(index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500 mb-2"
-                      rows={2}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="number"
-                        placeholder="소요 시간 (초)"
-                        min="0"
-                        value={step.duration || ''}
-                        onChange={(e) => updateStep(index, 'duration', parseInt(e.target.value) || 0)}
-                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500"
-                      />
-                      <input
-                        type="number"
-                        placeholder="온도 (°C)"
-                        min="0"
-                        value={step.temperature || ''}
-                        onChange={(e) => updateStep(index, 'temperature', parseInt(e.target.value) || 0)}
-                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">제조 과정 *</h3>
+              <textarea
+                name="process"
+                value={formData.process}
+                onChange={handleChange}
+                placeholder="커피 제조 과정을 자유롭게 작성해주세요&#10;예:&#10;1. 원두 20g을 그라인더로 중간 정도로 분쇄&#10;2. 드립퍼에 필터를 넣고 원두를 넣어줍니다&#10;3. 92도 물로 40ml 블룸을 30초간 진행&#10;4. 이후 2분 30초에 걸쳐 300ml까지 추출"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500"
+                rows={8}
+                required
+              />
             </div>
 
 

@@ -1,15 +1,30 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Coffee } from '@/types';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { CoffeeIcon } from '@/components/ui/CustomIcon';
+import { CoffeeDetailModal } from '@/components/coffees/CoffeeDetailModal';
 
 interface CoffeeInventoryProps {
   coffees: Coffee[];
 }
 
 export function CoffeeInventory({ coffees }: CoffeeInventoryProps) {
+  const [selectedCoffee, setSelectedCoffee] = useState<Coffee | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCoffeeClick = (coffee: Coffee) => {
+    setSelectedCoffee(coffee);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedCoffee(null);
+  };
+
   const getTypeColor = (type: string) => {
     const colors: Record<string, string> = {
       'single-origin': 'bg-green-100 text-green-800',
@@ -92,9 +107,9 @@ export function CoffeeInventory({ coffees }: CoffeeInventoryProps) {
           const isExpiring = isExpiringSoon(coffee);
           
           return (
-            <Link
+            <div
               key={coffee.id}
-              href={`/coffees/${coffee.id}`}
+              onClick={() => handleCoffeeClick(coffee)}
               className="block p-4 rounded-lg border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer"
             >
               <div className="flex items-start justify-between mb-2">
@@ -150,10 +165,17 @@ export function CoffeeInventory({ coffees }: CoffeeInventoryProps) {
                   )}
                 </div>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>
+
+      {/* 커피 상세 정보 모달 */}
+      <CoffeeDetailModal
+        coffee={selectedCoffee}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+      />
     </div>
   );
 }

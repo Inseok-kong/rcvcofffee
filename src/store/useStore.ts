@@ -47,15 +47,37 @@ export const useCoffeeStore = create<CoffeeStore>()(
       // 초기 상태
       user: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true, // 초기 로딩 상태를 true로 설정
       coffees: [],
       recipes: [],
       consumptions: [],
       dashboardData: null,
       
       // 액션들
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
-      setLoading: (isLoading) => set({ isLoading }),
+      setUser: (user) => {
+        const currentState = get();
+        // 상태가 실제로 변경되었을 때만 업데이트
+        if (currentState.user?.uid !== user?.uid || currentState.isAuthenticated !== !!user) {
+          console.log('setUser 호출됨:', user ? `User logged in: ${user.email}` : 'User logged out');
+          set({ 
+            user, 
+            isAuthenticated: !!user,
+            isLoading: false // 사용자 상태가 설정되면 로딩 완료
+          });
+        } else if (currentState.isLoading) {
+          // 사용자는 같지만 로딩 상태인 경우 로딩만 완료
+          console.log('setUser: 로딩 상태만 완료');
+          set({ isLoading: false });
+        }
+      },
+      setLoading: (isLoading) => {
+        const currentState = get();
+        // 로딩 상태가 실제로 변경되었을 때만 업데이트
+        if (currentState.isLoading !== isLoading) {
+          console.log('setLoading 호출됨:', isLoading);
+          set({ isLoading });
+        }
+      },
       
       setCoffees: (coffees) => set({ coffees }),
       addCoffee: (coffee) => set((state) => ({ coffees: [...state.coffees, coffee] })),

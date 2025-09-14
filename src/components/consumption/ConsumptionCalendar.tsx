@@ -30,7 +30,22 @@ export function ConsumptionCalendar({
     const grouped = new Map<string, CoffeeConsumption[]>();
     
     consumptions.forEach(consumption => {
-      const dateKey = consumption.consumedAt.toISOString().split('T')[0];
+      // 로컬 시간대를 기준으로 날짜 키 생성 (시간대 차이 방지)
+      const consumedDate = new Date(consumption.consumedAt);
+      const year = consumedDate.getFullYear();
+      const month = String(consumedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(consumedDate.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+      
+      console.log('소비기록 날짜 처리:', {
+        id: consumption.id,
+        coffeeName: consumption.coffeeName,
+        consumedAt: consumption.consumedAt,
+        consumedAtType: typeof consumption.consumedAt,
+        consumedAtString: consumption.consumedAt.toISOString(),
+        dateKey: dateKey
+      });
+      
       if (!grouped.has(dateKey)) {
         grouped.set(dateKey, []);
       }
@@ -38,6 +53,7 @@ export function ConsumptionCalendar({
     });
     
     console.log('달력 소비 기록 업데이트:', consumptions.length, '개, 그룹화된 날짜:', grouped.size, '개');
+    console.log('그룹화된 데이터:', Array.from(grouped.entries()));
     setConsumptionsByDate(grouped);
   }, [consumptions]);
 
@@ -65,7 +81,11 @@ export function ConsumptionCalendar({
   };
 
   const getConsumptionsForDate = (date: Date) => {
-    const dateKey = date.toISOString().split('T')[0];
+    // 로컬 시간대를 기준으로 날짜 키 생성
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     return consumptionsByDate.get(dateKey) || [];
   };
 
@@ -100,6 +120,7 @@ export function ConsumptionCalendar({
   };
 
   const handleDateClick = (date: Date) => {
+    console.log('달력에서 날짜 클릭됨:', date.toDateString());
     if (onDateSelect) {
       onDateSelect(date);
     }
@@ -188,7 +209,7 @@ export function ConsumptionCalendar({
                 ${!hasConsumption && !isToday(date) && !isSelected(date) ? 'text-gray-400' : 'text-gray-900'}
                 group relative
               `}
-              title={hasConsumption ? '클릭: 상세보기, 더블클릭: 추가' : '더블클릭: 소비 기록 추가'}
+              title={hasConsumption ? `클릭: 상세보기, 더블클릭: 추가 (${consumptionCount}잔, ${totalAmount}g)` : '더블클릭: 소비 기록 추가'}
             >
               <div className="flex flex-col h-full">
                 <div className="text-sm font-medium mb-1">
@@ -213,8 +234,8 @@ export function ConsumptionCalendar({
                 {!hasConsumption && (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <div className="text-xs text-gray-400 text-center">
-                        더블클릭<br/>추가
+                      <div className="text-xs text-amber-500 text-center font-medium">
+                        더블클릭<br/>소비기록 추가
                       </div>
                     </div>
                   </div>

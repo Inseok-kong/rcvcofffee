@@ -2,10 +2,12 @@ import type { NextConfig } from "next";
 import withPWA from "next-pwa";
 
 const nextConfig: NextConfig = {
+  output: 'export',
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
+  distDir: 'out',
 };
 
 export default withPWA({

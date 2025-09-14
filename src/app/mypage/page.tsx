@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useCoffeeStore } from '@/store/useStore';
 import { authService } from '@/services/authService';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -130,9 +131,11 @@ export default function MyPage() {
             {/* 프로필 이미지 */}
             <div className="h-20 w-20 bg-amber-100 rounded-full flex items-center justify-center">
               {user.photoURL ? (
-                <img
+                <Image
                   src={user.photoURL}
                   alt="프로필"
+                  width={80}
+                  height={80}
                   className="h-20 w-20 rounded-full object-cover"
                 />
               ) : (

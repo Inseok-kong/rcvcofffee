@@ -7,14 +7,18 @@ import { coffeeService } from '@/services/firebaseService';
 import { CoffeeCard } from '@/components/coffees/CoffeeCard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { PlusIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function CoffeesPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, coffees, setCoffees } = useCoffeeStore();
   const [isLoadingData, setIsLoadingData] = useState(false);
+  
+  // 인증 체크
+  const { isReady } = useAuth();
 
   const loadCoffees = useCallback(async () => {
-    if (!user) return;
+    if (!user || coffees.length > 0) return; // 이미 데이터가 있으면 로딩하지 않음
     
     setIsLoadingData(true);
     try {
@@ -25,16 +29,12 @@ export default function CoffeesPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [user, setCoffees]);
+  }, [user, setCoffees, coffees.length]);
+
+  // 인증 체크는 useAuth 훅에서 처리됨
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && coffees.length === 0) {
       loadCoffees();
     }
   }, [isAuthenticated, user, loadCoffees]);
@@ -50,16 +50,17 @@ export default function CoffeesPage() {
     }
   };
 
-  if (isLoading || isLoadingData) {
+  const handleAddCoffee = () => {
+    console.log('커피 추가 버튼 클릭');
+    router.push('/coffees/new');
+  };
+
+  if (isLoading || isLoadingData || !isReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (
@@ -74,7 +75,7 @@ export default function CoffeesPage() {
             </p>
           </div>
           <button
-            onClick={() => router.push('/coffees/new')}
+            onClick={handleAddCoffee}
             className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
@@ -95,7 +96,7 @@ export default function CoffeesPage() {
               첫 번째 커피를 추가해보세요
             </p>
             <button
-              onClick={() => router.push('/coffees/new')}
+              onClick={handleAddCoffee}
               className="inline-flex items-center px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
             >
               <PlusIcon className="h-5 w-5 mr-2" />

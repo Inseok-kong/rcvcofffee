@@ -69,7 +69,7 @@ export function CoffeeCard({ coffee, onDelete }: CoffeeCardProps) {
 
   return (
     <Link
-      href={`/coffees/${coffee.id}`}
+      href={`/coffees/detail?id=${coffee.id}`}
       className="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
     >
       {/* 헤더 */}
