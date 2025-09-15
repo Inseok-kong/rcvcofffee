@@ -16,6 +16,7 @@ export function useAuth(redirectTo: string = '/login') {
   useEffect(() => {
     // 로딩 중이면 아무것도 하지 않음
     if (isLoading) {
+      console.log('useAuth: 로딩 중...');
       return;
     }
 
@@ -24,6 +25,12 @@ export function useAuth(redirectTo: string = '/login') {
       isAuthenticated: !!isAuthenticated && !!user,
       userId: user?.uid || null
     };
+
+    console.log('useAuth: 현재 인증 상태 체크', {
+      isAuthenticated: currentAuthState.isAuthenticated,
+      userId: currentAuthState.userId,
+      hasRedirected: hasRedirected.current
+    });
 
     // 상태가 변경되지 않았으면 아무것도 하지 않음
     if (

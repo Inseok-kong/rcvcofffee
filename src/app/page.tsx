@@ -24,7 +24,7 @@ export default function Home() {
     getTotalWeight 
   } = useCoffeeStore();
   
-  // 인증 체크
+  // 인증 체크 - useAuth에서 자동으로 리다이렉트 처리
   const { isReady } = useAuth();
   const dataLoaded = useRef(false);
 
@@ -61,17 +61,9 @@ export default function Home() {
     }
   }, [isAuthenticated, user, isReady, loadData]);
 
-  // 로딩 중이거나 인증되지 않은 경우에만 로딩 화면 표시
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
-  // 인증되지 않은 경우 useAuth에서 리다이렉트 처리
-  if (!isAuthenticated || !user) {
+  // 로딩 중이거나 인증 준비가 안된 경우 로딩 화면 표시
+  // useAuth에서 자동으로 로그인 페이지로 리다이렉트 처리
+  if (isLoading || !isReady || !isAuthenticated || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
